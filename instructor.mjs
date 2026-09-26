@@ -7,6 +7,12 @@ const pad=v=>String(v).padStart(2,'0');
 function pauseText(v){if(!v)return '';const d=new Date(v);return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 function parsePause(v){if(!v.trim())return null;const m=/^(\d{2})\.(\d{2})\.(\d{4}),? (\d{2}):(\d{2})$/.exec(v.trim());if(!m)throw new Error('Bitte das Pausenende als TT.MM.JJJJ, HH:MM eingeben.');const [,day,month,year,hour,minute]=m.map(Number),d=new Date(year,month-1,day,hour,minute);if(d.getFullYear()!==year||d.getMonth()!==month-1||d.getDate()!==day||d.getHours()!==hour||d.getMinutes()!==minute)throw new Error('Bitte ein gültiges Pausenende eingeben.');return d.toISOString();}
 const date=v=>v?new Date(v).toLocaleString('de-AT',{dateStyle:'medium',timeStyle:'short'}):'Noch nicht vorhanden';
+export function reviewAnswerText(payload,prompt){
+ const response=payload.response??payload.answer??payload;
+ if(response==='__worked_ack__')return 'Beispiel durchgearbeitet';
+ const option=prompt.options?.find(o=>o.id===response);
+ return option?option.text_de:typeof response==='string'?response:JSON.stringify(response);
+}
 export function createInstructorUI({api,el,add,button,clear,banner,content,run,notice}){
  let user,includeTest=false,student=null,students=[],tab='overview';
  const call=(action,body={})=>api('instructor/'+action,{...body,student_id:student.id});
@@ -65,8 +71,8 @@ export function createInstructorUI({api,el,add,button,clear,banner,content,run,n
   const details=el('details');details.append(el('summary','Hinweise und Erklärung ansehen'));p.hints_de.forEach((h,n)=>{const box=add(el('div',null,{class:'hint'}),el('strong',`Hinweis ${n+1}`));content(box,h);details.append(box);});c.append(details);appRoot().append(c);}
  async function mission(id){const m=await call('mission',{mission_id:id});frame('Mission ansehen',m.reason_summary_de);for(const t of m.items){const c=card(`${t.position}. ${t.title_de}`);add(c,el('p',taskLabels[t.status]),el('p',t.inserted_reason_de),button('Aufgabe und Antworten',()=>task(t.id),'quiet'));appRoot().append(c);}}
  async function task(id){const t=await call('task',{mission_item_id:id});frame(t.title_de,'Nur Ansicht · Schülerergebnisse bleiben unverändert.');const c=card('Aufgabe');content(c,t.prompt);if(t.prompt.worked_solution_de)c.append(el('p',t.prompt.worked_solution_de));if(t.prompt.options)list(c,t.prompt.options.map(o=>o.text_de),'');add(c,el('p',t.prompt.answer_instruction_de??'',{class:'muted'}),el('h3','Warum diese Aufgabe?'),el('p',t.reason_de));appRoot().append(c);
-  const answers=card('Antworten');if(!t.attempts.length)answers.append(el('p','Noch keine Antwort abgegeben.'));for(const a of t.attempts){const d=el('div',null,{class:'answer-review'});let response=a.response_payload.response??a.response_payload.answer??a.response_payload;
-   add(d,el('h3',`Versuch ${a.attempt_number} · ${correctness[a.correctness]}`),el('p',response==='__worked_ack__'?'Beispiel durchgearbeitet':typeof response==='string'?response:JSON.stringify(response)),el('p',a.feedback_de),el('p',`Hilfe H${a.max_hint_level} · ${date(a.submitted_at)}`,{class:'muted'}));
+  const answers=card('Antworten');if(!t.attempts.length)answers.append(el('p','Noch keine Antwort abgegeben.'));for(const a of t.attempts){const d=el('div',null,{class:'answer-review'});const response=reviewAnswerText(a.response_payload,t.prompt);
+   add(d,el('h3',`Versuch ${a.attempt_number} · ${correctness[a.correctness]}`),el('p',response),el('p',a.feedback_de),el('p',`Hilfe H${a.max_hint_level} · ${date(a.submitted_at)}`,{class:'muted'}));
    list(d,a.support_trace.map(h=>h.kind==='protocol'?`Einstieg ${h.step}: ${h.text_de}`:`Hinweis H${h.level} verwendet`),'Keine zusätzlichen Hilfen angefordert.');answers.append(d);}appRoot().append(answers);
  }
  function school(data){appRoot().append(el('p','AHS 5 · Kapitel 2 – Terme. Der Schulstand steuert neue Missionen; er bewertet keine mathematische Fähigkeit.',{class:'muted'}));
