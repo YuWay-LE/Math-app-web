@@ -75,11 +75,20 @@ export function createInstructorUI({api,el,add,button,clear,banner,content,run,n
    add(d,el('h3',`Versuch ${a.attempt_number} · ${correctness[a.correctness]}`),el('p',response),el('p',a.feedback_de),el('p',`Hilfe H${a.max_hint_level} · ${date(a.submitted_at)}`,{class:'muted'}));
    list(d,a.support_trace.map(h=>h.kind==='protocol'?`Einstieg ${h.step}: ${h.text_de}`:`Hinweis H${h.level} verwendet`),'Keine zusätzlichen Hilfen angefordert.');answers.append(d);}appRoot().append(answers);
  }
- function school(data){appRoot().append(el('p','AHS 5 · Kapitel 2 – Terme. Der Schulstand steuert neue Missionen; er bewertet keine mathematische Fähigkeit.',{class:'muted'}));
-  for(const u of data.school){const c=card(u.title_de);if(student.permission!=='manage'){add(c,el('p',schoolLabels[u.status]),el('p','Priorität: '+['Niedrig','Normal','Hoch'][u.priority]),el('p',u.admin_note_de??'Keine Notiz.'));}
+ function school(data){
+  appRoot().append(el('p','AHS 5 · vollständiger Lernweg. Schulstand = Stand in der Klasse; Lernstand = durch App-Nachweise belegte Selbstständigkeit. Schulstand allein bedeutet keine Beherrschung.',{class:'muted'}));
+  const contentLabels={available:'Lernaufgaben verfügbar',maintenance:'Wiederholung verfügbar',unreleased:'Noch nicht freigegeben'};
+  let chapter=null;
+  for(const u of data.school){
+   if(chapter!==u.chapter_no){chapter=u.chapter_no;appRoot().append(el('h2',`${u.chapter_no}. ${u.chapter_title_de}`));}
+   const c=card(`${u.unit_code.replace('LW5-','')} ${u.title_de}`);
+   add(c,el('p',`Schulstand: ${schoolLabels[u.status]}`),el('p',`Lernstand: ${u.learning_state_de??'—'}`),el('p',`App-Inhalt: ${contentLabels[u.content_status]}`));
+   if(u.content_status==='unreleased')c.append(el('p','Dieser Abschnitt kann als Schulstand dokumentiert werden, erzeugt aber noch keine Lernmission.',{class:'muted'}));
+   if(student.permission!=='manage'){add(c,el('p','Priorität: '+['Niedrig','Normal','Hoch'][u.priority]),el('p',u.admin_note_de??'Keine Notiz.'));}
    else{const form=el('form'),status=options(schoolLabels,u.status,'status-'+u.id),priority=options({'0':'Niedrig','1':'Normal','2':'Hoch'},String(u.priority),'priority-'+u.id),note=el('textarea',u.admin_note_de??'',{id:'note-'+u.id,maxlength:'2000',rows:'2'});
     add(form,el('label','Schulstand',{for:status.id}),status,el('label','Priorität',{for:priority.id}),priority,el('label','Schul- oder Hausübungsnotiz',{for:note.id}),note,el('button','Schulstand speichern',{type:'submit'}));form.addEventListener('submit',e=>{e.preventDefault();run(async()=>{const r=await call('school',{unit_id:u.id,status:status.value,priority:Number(priority.value),note_de:note.value});await dashboard();notice.textContent=r.message_de;});});c.append(form);}
-   c.append(el('small','Zuletzt geändert: '+date(u.updated_at)));appRoot().append(c);}
+   c.append(el('small','Zuletzt geändert: '+date(u.updated_at)));appRoot().append(c);
+  }
  }
  return {open:async(session,previewMode)=>{user=session;student=null;tab='overview';includeTest=previewMode;await dashboard();}};
 }
